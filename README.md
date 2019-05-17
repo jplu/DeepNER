@@ -62,7 +62,6 @@ flags:
 
 deepner/task.py:
   --data_dir: The input data dir. Should contain the .conll files (or other data files) for the task.
-    (default: '..')
   --dropout: The dropout used during the training.
     (default: '0.5')
     (a number)
@@ -98,7 +97,6 @@ deepner/task.py:
     (default: '50.0')
     (a number)
   --output_dir: The output directory where the model checkpoints will be written.
-    (default: 'output')
   --predict_batch_size: Total batch size for predict.
     (default: '8')
     (an integer)
