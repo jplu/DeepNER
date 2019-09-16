@@ -42,6 +42,7 @@ app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], a
 
 METADATA_FILE = os.environ.get("METADATA_FILE")
 MODEL_NAME = os.environ.get("MODEL_NAME")
+HOST_NAME = os.environ.get("HOST_NAME") if os.environ.get("HOST_NAME") else "localhost"
 
 with tf.io.gfile.GFile(METADATA_FILE, "rb") as f:
     metadata = pickle.load(f)
@@ -114,7 +115,7 @@ async def health():
 
 @app.post("/api/ner/recognize")
 async def get_prediction(ad: Ad):
-    channel = grpc.insecure_channel("localhost:8500")
+    channel = grpc.insecure_channel(HOST_NAME + ":8500")
     stub = prediction_service_pb2_grpc.PredictionServiceStub(channel)
     doc = nlp.tokenizer(ad.text)
     txt = " ".join([token.text for token in doc])
