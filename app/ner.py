@@ -5,13 +5,11 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import _pickle as pickle
 import tensorflow as tf
-import spacy
 from spacy.tokens import Span
+from spacy.lang.en import English
 from tensorflow_serving.apis import predict_pb2
 from tensorflow_serving.apis import prediction_service_pb2_grpc
 from starlette.middleware.cors import CORSMiddleware
-
-spacy.prefer_gpu()
 
 
 class InputFeatures(object):
@@ -52,7 +50,10 @@ MAX_SENTENCE_SEQ_LENGTH = metadata['max_sentence_seq_length']
 MAX_TOKEN_SEQ_LENGTH = metadata['max_token_seq_length']
 vocab_tokens = metadata["vocab_tokens"]
 vocab_chars = metadata["vocab_chars"]
-nlp = spacy.load('fr_core_news_md')
+nlp = English()
+tokenizer = nlp.Defaults.create_tokenizer(nlp)
+channel = grpc.insecure_channel(HOST_NAME + ":8500")
+stub = prediction_service_pb2_grpc.PredictionServiceStub(channel)
 
 
 def convert_single_example(ex_index, example):
@@ -115,9 +116,7 @@ async def health():
 
 @app.post("/api/ner/recognize")
 async def get_prediction(ad: Ad):
-    channel = grpc.insecure_channel(HOST_NAME + ":8500")
-    stub = prediction_service_pb2_grpc.PredictionServiceStub(channel)
-    doc = nlp.tokenizer(ad.text)
+    doc = tokenizer(ad.text)
     txt = " ".join([token.text for token in doc])
     input_example = InputExample(text=txt, labels=" ".join(['O'] * len(txt)))
     feature = convert_single_example(0, input_example)
