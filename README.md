@@ -7,6 +7,8 @@ To install the DeepNER package, run:
 pip install -e .
 ```
 
+The given client script is configured to tokenize English, if your model is in another language don't forget to update the client accordingly. As we are using spaCy as tokenizer, you can check the [documentation](https://spacy.io/api/tokenizer) for the allowed [languages](https://spacy.io/models).
+
 ## Prepare your Google Cloud Platform environment
 Run the following commands to set the proper project and zone:
 ```text
