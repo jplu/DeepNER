@@ -14,6 +14,7 @@ Run the following commands to set the proper project and zone:
 ```text
 gcloud config set project <your-project>
 gcloud config set compute/zone us-central1
+gcloud config set compute/region us-central1
 ```
 
 Now you have to authorize the TPU to have access to ML-Engine. First get the service name of the 
@@ -45,9 +46,7 @@ Next, you have to create the bucket that will contain the models and the data an
 authorizations:
 ```text
 gsutil mb -c regional -l us-central1 gs://<bucket-name>
-gsutil acl ch -u <tpu-service>:READER gs://<bucket-name>
-gsutil acl ch -u <tpu-service>:WRITER gs://<bucket-name>
-gsutil defacl ch -u <tpu-service>:O gs://<bucket-name>
+gsutil -m acl ch -r -u <tpu-service>:O gs://<bucket-name>
 ```
 ## Dataset format
 To properly train the NER your dataset has to be in [CoNLL2003 format](https://www.clips.uantwerpen.be/conll2003/ner/).
