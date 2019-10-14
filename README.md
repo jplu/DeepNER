@@ -47,6 +47,7 @@ authorizations:
 gsutil mb -c regional -l us-central1 gs://<bucket-name>
 gsutil acl ch -u <tpu-service>:READER gs://<bucket-name>
 gsutil acl ch -u <tpu-service>:WRITER gs://<bucket-name>
+gsutil defacl ch -u <tpu-service>:O gs://<bucket-name>
 ```
 ## Dataset format
 To properly train the NER your dataset has to be in [CoNLL2003 format](https://www.clips.uantwerpen.be/conll2003/ner/).
