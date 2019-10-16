@@ -5,6 +5,7 @@ import pandas as pd
 import tensorflow as tf
 import _pickle as pickle
 import numpy as np
+from absl import logging
 
 vocab_tokens = ['[PAD]', '[UKN]']
 vocab_chars = ['[PAD]', '[UKN]']
@@ -13,8 +14,8 @@ vocab_chars = ['[PAD]', '[UKN]']
 def _load_dataset(name):
     label_list = []
     dataset = {"text": [], "labels": []}
-    tf.logging.info(name + ": " + str(tf.gfile.Exists(name)))
-    with tf.gfile.GFile(name) as f:
+    logging.info(name + ": " + str(tf.io.gfile.exists(name)))
+    with tf.io.gfile.GFile(name) as f:
         words = []
         labels = []
         for line in f:
@@ -94,8 +95,8 @@ def convert_chars_to_ids(chars):
 def get_embedding_map(embeddings_path):
     embeddings = {}
     embedding_size = 0
-    tf.logging.info(embeddings_path + ": " + str(tf.gfile.Exists(embeddings_path)))
-    with tf.gfile.GFile(embeddings_path) as fp:
+    logging.info(embeddings_path + ": " + str(tf.io.gfile.exists(embeddings_path)))
+    with tf.io.gfile.GFile(embeddings_path) as fp:
         for idx, line in enumerate(fp):
             if len(line) < 30 and idx == 0:
                 # In fasttext, the first line is the # of vocab words.
@@ -126,20 +127,20 @@ def convert_single_example(ex_index, example, label_list, max_token_seq_length,
     nlabels = example.labels.strip().split(u' ')
     tokens = [w.encode('utf-8') if w in vocab_tokens else b'[UKN]' for w in ntokens]
     labels = [l.encode('utf-8') for l in nlabels]
-
+    chars = [[c.encode('utf-8') if c in vocab_chars else b'[UKN]' for c in w] for w in
+             example.text.strip().split(u' ')]
+    
     if len(tokens) > max_sentence_seq_length:
         tokens = tokens[0:max_sentence_seq_length]
         labels = labels[0:max_sentence_seq_length]
         ntokens = ntokens[0:max_sentence_seq_length]
         nlabels = nlabels[0:max_sentence_seq_length]
-
-    chars = [[c.encode('utf-8') if c in vocab_chars else b'[UKN]' for c in w] for w in
-             example.text.strip().split(u' ')]
+        chars = chars[0:max_sentence_seq_length]
 
     for i, _ in enumerate(chars):
         if len(chars[i]) > max_token_seq_length:
             chars[i] = chars[i][0:max_token_seq_length]
-
+    
     if len(tokens) < max_sentence_seq_length:
         tokens.extend([b'[PAD]'] * (max_sentence_seq_length - len(tokens)))
         labels.extend([b'O'] * (max_sentence_seq_length - len(labels)))
@@ -148,10 +149,10 @@ def convert_single_example(ex_index, example, label_list, max_token_seq_length,
 
     lengths = [len(c) for c in chars]
     chars = [c + [b'[PAD]'] * (max_token_seq_length - l) for c, l in zip(chars, lengths)]
-
+    
     while len(chars) < max_sentence_seq_length:
         chars.append([b'[PAD]'] * max_token_seq_length)
-
+    
     assert len(chars) == len(tokens) == len(labels) == len(ntokens) == len(nlabels) == \
            max_sentence_seq_length
     
@@ -165,10 +166,10 @@ def convert_single_example(ex_index, example, label_list, max_token_seq_length,
     assert len(labels) == max_sentence_seq_length
 
     if ex_index < 5:
-        tf.logging.info("*** Example ***")
-        tf.logging.info("tokens: %s" % " ".join([str(x) for x in tokens]))
-        tf.logging.info("chars: %s" % " ".join([str(x) for x in chars]))
-        tf.logging.info("labels: %s" % " ".join([str(x) for x in labels]))
+        logging.info("*** Example ***")
+        logging.info("tokens: %s" % " ".join([str(x) for x in tokens]))
+        logging.info("chars: %s" % " ".join([str(x) for x in chars]))
+        logging.info("labels: %s" % " ".join([str(x) for x in labels]))
 
     feature = InputFeatures(
         chars=chars,
@@ -181,13 +182,13 @@ def convert_single_example(ex_index, example, label_list, max_token_seq_length,
 
 def file_based_convert_examples_to_features(examples, label_list, max_token_seq_length,
                                             max_sentence_seq_length, output_file):
-    writer = tf.python_io.TFRecordWriter(output_file)
+    writer = tf.io.TFRecordWriter(output_file)
     batch_tokens = []
     batch_labels = []
 
     for (ex_index, example) in enumerate(examples):
         if ex_index % 5000 == 0:
-            tf.logging.info("Writing example %d of %d" % (ex_index, len(examples)))
+            logging.info("Writing example %d of %d" % (ex_index, len(examples)))
         feature, tokens, labels = convert_single_example(ex_index, example, label_list,
                                                          max_token_seq_length,
                                                          max_sentence_seq_length)
@@ -221,14 +222,14 @@ def create_features(max_token_seq_length, max_sentence_seq_length, train_conll, 
                     train_tfrecord_file, eval_tfrecord_file, metadata_file, embedding_path):
     global vocab_tokens
 
-    if tf.gfile.Exists(train_tfrecord_file):
-        tf.gfile.Remove(train_tfrecord_file)
+    if tf.io.gfile.exists(train_tfrecord_file):
+        tf.io.gfile.remove(train_tfrecord_file)
 
-    if tf.gfile.Exists(eval_tfrecord_file):
-        tf.gfile.Remove(eval_tfrecord_file)
+    if tf.io.gfile.exists(eval_tfrecord_file):
+        tf.io.gfile.remove(eval_tfrecord_file)
 
-    if tf.gfile.Exists(metadata_file):
-        tf.gfile.Remove(metadata_file)
+    if tf.io.gfile.exists(metadata_file):
+        tf.io.gfile.remove(metadata_file)
 
     train_input_examples, label_list = load_examples(train_conll)
     eval_input_examples, _ = load_examples(test_conll)
@@ -250,14 +251,14 @@ def create_features(max_token_seq_length, max_sentence_seq_length, train_conll, 
                 "vocab_tokens": vocab_tokens, "vocab_chars": vocab_chars,
                 "batch_tokens": batch_tokens, "batch_labels": batch_labels}
 
-    with tf.gfile.GFile(metadata_file, "w") as f:
+    with tf.io.gfile.GFile(metadata_file, "w") as f:
         pickle.dump(metadata, f)
 
 
 def main():
-    tf.logging.set_verbosity(tf.logging.INFO)
-    create_features(45, 128, "/home/jplu/train.conll", "/home/jplu/test.conll", "../train.tfrecord",
-                    "../eval.tfrecord", "../metadata.pkl", "../glove.840B.300d.txt")
+    logging.set_verbosity(logging.INFO)
+    create_features(45, 128, "../train.conll", "../test.conll", "../train.tfrecord",
+                    "../eval.tfrecord", "../metadata.pkl", "../cc.fr.300.short.vec")
 
 
 if __name__ == "__main__":

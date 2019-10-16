@@ -135,7 +135,7 @@ venv.bak/
 .mypy_cache/
 
 # testing temporary model and dataset folders
-model/
+models/
 dataset/
 
 #K8S deployment

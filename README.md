@@ -138,7 +138,7 @@ JOB_NAME=<job-name>
  
 And finally run the remote training:
 ```text
-gcloud ml-engine jobs submit training $JOB_NAME \
+gcloud ai-platform jobs submit training $JOB_NAME \
     --staging-bucket $STAGING_BUCKET \
     --module-name deepner.task \
     --package-path deepner \
@@ -170,7 +170,7 @@ It is not advised to train this model on CPU/GPU because you will easily need se
 training instead of hours. Nevertheless, if you want to train this model on ML-Engine without a
 TPU the process is the same except the command line that should be:
 ```text
-gcloud ml-engine jobs submit training $JOB_NAME \
+gcloud ai-platform jobs submit training $JOB_NAME \
     --staging-bucket $STAGING_BUCKET \
     --module-name deepner.task \
     --package-path deepner \
