@@ -6,7 +6,7 @@ from pydantic import BaseModel
 import _pickle as pickle
 import tensorflow as tf
 from spacy.tokens import Span
-from spacy.lang.en import English
+from spacy.lang.fr import French
 from tensorflow_serving.apis import predict_pb2
 from tensorflow_serving.apis import prediction_service_pb2_grpc
 from starlette.middleware.cors import CORSMiddleware
@@ -41,6 +41,7 @@ app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], a
 METADATA_FILE = os.environ.get("METADATA_FILE")
 MODEL_NAME = os.environ.get("MODEL_NAME")
 HOST_NAME = os.environ.get("HOST_NAME") if os.environ.get("HOST_NAME") else "localhost"
+GRPC_SERVER_PORT = os.environ.get("GRPC_SERVER_PORT") if os.environ.get("GRPC_SERVER_PORT") else 8500
 
 with tf.io.gfile.GFile(METADATA_FILE, "rb") as f:
     metadata = pickle.load(f)
@@ -50,9 +51,9 @@ MAX_SENTENCE_SEQ_LENGTH = metadata['max_sentence_seq_length']
 MAX_TOKEN_SEQ_LENGTH = metadata['max_token_seq_length']
 vocab_tokens = metadata["vocab_tokens"]
 vocab_chars = metadata["vocab_chars"]
-nlp = English()
-tokenizer = nlp.Defaults.create_tokenizer(nlp)
-channel = grpc.insecure_channel(HOST_NAME + ":8500")
+nlp = French()
+nlp.add_pipe(nlp.create_pipe('sentencizer'))
+channel = grpc.insecure_channel(HOST_NAME + ":" + str(GRPC_SERVER_PORT))
 stub = prediction_service_pb2_grpc.PredictionServiceStub(channel)
 
 
@@ -65,13 +66,13 @@ def convert_single_example(ex_index, example):
     tokens = [w.encode('utf-8') if w in vocab_tokens else b'[UKN]' for w in
               example.text.strip().split(u' ')]
     labels = [l.encode('utf-8') for l in example.labels.strip().split(u' ')]
+    chars = [[c.encode('utf-8') if c in vocab_chars else b'[UKN]' for c in w] for w in
+             example.text.strip().split(u' ')]
 
     if len(tokens) > MAX_SENTENCE_SEQ_LENGTH:
         tokens = tokens[0:MAX_SENTENCE_SEQ_LENGTH]
         labels = labels[0:MAX_SENTENCE_SEQ_LENGTH]
-
-    chars = [[c.encode('utf-8') if c in vocab_chars else b'[UKN]' for c in w] for w in
-             example.text.strip().split(u' ')]
+        chars = chars[0:MAX_SENTENCE_SEQ_LENGTH]
 
     for i, _ in enumerate(chars):
         if len(chars[i]) > MAX_TOKEN_SEQ_LENGTH:
@@ -109,14 +110,14 @@ def convert_single_example(ex_index, example):
     return feature
 
 
-@app.get("/api/ner/health")
+@app.get("/api/health")
 async def health():
     return {"message": "I'm alive"}
 
 
-@app.post("/api/ner/recognize")
+@app.post("/api/recognize")
 async def get_prediction(ad: Ad):
-    doc = tokenizer(ad.text)
+    doc = nlp(ad.text)
     txt = " ".join([token.text for token in doc])
     input_example = InputExample(text=txt, labels=" ".join(['O'] * len(txt)))
     feature = convert_single_example(0, input_example)
@@ -141,10 +142,27 @@ async def get_prediction(ad: Ad):
     result = stub.Predict(model_request, 5.0)
     result = tf.make_ndarray(result.outputs["output"])
 
-    return output(doc, result[0])
+    return output_ner(doc, result[0])
 
 
-def output(doc, ids):
+@app.post("/api/tokenize")
+async def get_tokens(ad: Ad):
+    doc = nlp(ad.text)
+    doc = [[token for token in sent] for sent in doc.sents]
+    sentences = []
+
+    for sentence in doc:
+        tokens = []
+
+        for token in sentence:
+            tokens.append({"value": token.text, "begin": token.idx, "end": token.idx + len(token.text)})
+
+        sentences.append({"tokens": tokens})
+    
+    return {"sentences": sentences}
+
+
+def output_ner(doc, ids):
     res = {"entities": []}
     entities = []
     tf.logging.info(ids)
